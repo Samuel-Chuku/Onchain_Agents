@@ -1,2 +1,4 @@
 # Onchain_Agents
-Multi-chain onchain AI agents — swap agent with GOAT SDK, Uniswap Trading API, and patch-package fixes
+Multi-chain onchain AI agents - All agents were built with GOAT SDK,  and patch-package fixes.
+
+Each agent has its own README.md file that contains setup instructions.
