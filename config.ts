@@ -5,7 +5,7 @@ import { erc20 } from "@goat-sdk/plugin-erc20";
 import { uniswap } from "@goat-sdk/plugin-uniswap";
 import { createWalletClient, http } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { base, baseSepolia, sepolia, arbitrum, optimism, mainnet, monad } from "viem/chains";
+import { base, baseSepolia, sepolia, arbitrum, optimism, mainnet, monad, bsc } from "viem/chains";
 
 // --- Types ---
 
@@ -116,11 +116,26 @@ export const chainRegistry: Record<string, ChainEntry> = {
       USDT0: { symbol: "USDT0", decimals: 6,  chains: { "143": { contractAddress: "0xe7cd86e13AC4309349F30B3435a9d337750fC82D" } } },
     },
   },
+  bsc: {
+  chain: bsc,
+  rpcEnvVar: "BSC_RPC_URL",
+  label: "BNB Smart Chain",
+  explorer: "https://bscscan.com/tx",
+  swapPlugin: "uniswap",
+  tokens: {
+    BNB:  { symbol: "BNB",  decimals: 18, chains: { "56": { contractAddress: "0x0000000000000000000000000000000000000000" } } },
+    WBNB: { symbol: "WBNB", decimals: 18, chains: { "56": { contractAddress: "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c" } } },
+    USDT: { symbol: "USDT", decimals: 18, chains: { "56": { contractAddress: "0x55d398326f99059fF775485246999027B3197955" } } },
+    USDC: { symbol: "USDC", decimals: 18, chains: { "56": { contractAddress: "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d" } } },
+  },
+},
 };
 
 // --- Wallet (raw viem — swap to Crossmint here when ready) ---
 
 export const account = privateKeyToAccount(process.env.WALLET_PRIVATE_KEY as `0x${string}`);
+
+const FLASHBOTS_RPC = "https://rpc.flashbots.net";
 
 export function buildClients() {
   return Object.fromEntries(
@@ -129,7 +144,7 @@ export function buildClients() {
       createWalletClient({
         account,
         chain: cfg.chain,
-        transport: http(process.env[cfg.rpcEnvVar]),
+        transport: http(name === "ethereum" ? FLASHBOTS_RPC : process.env[cfg.rpcEnvVar]),
       }),
     ])
   ) as Record<string, ReturnType<typeof createWalletClient>>;
