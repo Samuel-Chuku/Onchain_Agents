@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "npx tsx index.ts",
+    "x047": "npx tsx x047.ts",
     "postinstall": "patch-package"
   },
   "dependencies": {
@@ -13,7 +14,10 @@
     "@goat-sdk/plugin-erc20": "^0.2.0",
     "@goat-sdk/plugin-uniswap": "^0.2.0",
     "@goat-sdk/wallet-viem": "^0.2.0",
+    "@solana/spl-token": "^0.4.14",
+    "@solana/web3.js": "^1.98.4",
     "ai": "^4.3.16",
+    "bs58": "^6.0.0",
     "dotenv": "^16.4.7",
     "tsx": "^4.19.3",
     "viem": "^2.23.10"
