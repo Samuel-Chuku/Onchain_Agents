@@ -7,6 +7,28 @@ export type TransferResult =
   | { ok: true; txHash: string; explorerUrl: string }
   | { ok: false; error: string; message: string };
 
+const sendCache = new Map<string, { data: { chain: string; token: string; to: string; amount: number }; timestamp: number }>();
+let sendSeq = 0;
+const SEND_TTL_MS = 60_000;
+
+export function previewSend(chain: string, token: string, to: string, amount: number) {
+  const sendId = `s_${++sendSeq}`;
+  sendCache.set(sendId, { data: { chain, token, to, amount }, timestamp: Date.now() });
+  return { sendId, chain, token, to, amount };
+}
+
+export async function resolveAndSend(sendId: string): Promise<TransferResult> {
+  const entry = sendCache.get(sendId);
+  if (!entry) return { ok: false, error: "send_not_found", message: "Send not found — please resubmit." };
+  if (Date.now() - entry.timestamp > SEND_TTL_MS) {
+    sendCache.delete(sendId);
+    return { ok: false, error: "send_expired", message: "Send expired — please resubmit." };
+  }
+  sendCache.delete(sendId);
+  const { chain, token, to, amount } = entry.data;
+  return sendToken(chain, token, to, amount);
+}
+
 export async function sendToken(
   chain: string,
   token: string,

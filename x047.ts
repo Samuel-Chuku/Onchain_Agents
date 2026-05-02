@@ -4,9 +4,9 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { chainRegistry } from "./config";
 import { account } from "./x047/shared";
 import { solanaAddress } from "./x047/solana";
-import { getBalance } from "./x047/balance";
+import { getBalance, getUsdPrice } from "./x047/balance";
 import { getSwapQuote, executeSwap, resolveQuote } from "./x047/swap";
-import { sendToken } from "./x047/transfer";
+import { previewSend, resolveAndSend } from "./x047/transfer";
 import { z } from "zod";
 import * as readline from "readline";
 
@@ -57,15 +57,35 @@ const tools = {
     },
   }),
 
-  send_token: tool({
-    description: "Send tokens to an address",
+  get_price: tool({
+    description: "Get the current USD price of a token. Use this before preview_send when the user specifies an amount in USD.",
+    parameters: z.object({
+      token: z.string().describe("Token symbol, e.g. ETH, BNB, SOL, USDC"),
+    }),
+    execute: async ({ token }) => {
+      const price = await getUsdPrice(token);
+      if (price === null) return { ok: false, error: "no_price", message: `No price available for ${token}.` };
+      return { ok: true, token: token.toUpperCase(), usdPrice: price };
+    },
+  }),
+
+  preview_send: tool({
+    description: "Preview a token send. Returns sendId — pass it exactly to execute_send after user confirms.",
     parameters: z.object({
       chain: z.string().describe(`Chain name. One of: ${CHAIN_LIST}`),
       token: z.string().describe("Token symbol or 0x contract address"),
       to: z.string().describe("Recipient wallet address"),
-      amount: z.number().describe("Human-readable amount (e.g. 0.01 for 0.01 ETH)"),
+      amount: z.number().describe("Human-readable token amount (e.g. 0.01 for 0.01 ETH)"),
     }),
-    execute: async ({ chain, token, to, amount }) => sendToken(chain, token, to, amount),
+    execute: async ({ chain, token, to, amount }) => previewSend(chain, token, to, amount),
+  }),
+
+  execute_send: tool({
+    description: "Execute a send after user confirms. Requires sendId from preview_send.",
+    parameters: z.object({
+      sendId: z.string().describe("The sendId returned by preview_send"),
+    }),
+    execute: async ({ sendId }) => resolveAndSend(sendId),
   }),
 };
 
@@ -76,7 +96,7 @@ Solana wallet: ${solanaAddress}
 Chains: ${CHAIN_LIST}
 Swap-enabled chains: ${SWAP_CHAINS}
 
-Tools: get_balance · get_swap_quote · execute_swap · send_token
+Tools: get_balance · get_price · get_swap_quote · execute_swap · preview_send · execute_send
 All amounts are human-readable (5 = 5 USDC, 0.01 = 0.01 ETH, 1 = 1 SOL).
 
 Chain selection: infer from the user's message. Default to "base" if unspecified. Use "solana" for any Solana/SOL/JTO/PENGU/TRUMP/WSOL requests.
@@ -90,6 +110,13 @@ Swap flow:
    For Solana quotes, gasFeeUSD is not in the result — omit the gas portion.
 3. On yes: call execute_swap, passing chain and the full quoteData object from step 1
 4. On no: cancel
+
+Send flow:
+1. If the user specifies a USD amount (e.g. "send $5 of ETH"), call get_price first, then divide to get the token amount.
+2. Call preview_send → receive sendId
+3. Show the user: "Send: [amount] [token] → [to] on [chain]. Proceed? (yes/no)"
+4. On yes: call execute_send with sendId
+5. On no: cancel
 
 Balance output: always include the USD value in parentheses when usdValue is present in the tool result. Format: "[formatted] [SYMBOL] (~$[usdValue])".
 
